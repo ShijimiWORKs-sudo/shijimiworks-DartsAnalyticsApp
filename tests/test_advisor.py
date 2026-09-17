@@ -65,6 +65,7 @@ def test_candidate_cause_produces_matching_hypothesis_and_recommended_test():
         description="test description",
         supporting_evidence=["pearson_r=0.8"],
         confidence=0.4,
+        outcome_metric_name="mean_center_distance",
     )
     report = _minimal_report(candidate_causes=[cause])
     output = build_advisor_output(report)
@@ -74,6 +75,29 @@ def test_candidate_cause_produces_matching_hypothesis_and_recommended_test():
     assert len(output.recommended_tests) == 1
     assert output.recommended_tests[0].confidence == pytest.approx(0.4)
     assert "compare_baseline_vs_test" in output.recommended_tests[0].measurement_plan
+
+
+def test_evidence_and_expected_effect_propagate_from_candidate_cause():
+    """docs §8: each piece of advice should carry evidence + an expected
+    effect, as far as possible — verify these survive the
+    CandidateCause -> Hypothesis/RecommendedTest translation rather than
+    being silently dropped."""
+    cause = CandidateCause(
+        category="肘/前腕角度",
+        description="test description",
+        supporting_evidence=["pearson_r=0.62", "n=40"],
+        confidence=0.45,
+        outcome_metric_name="mean_center_distance",
+    )
+    report = _minimal_report(candidate_causes=[cause])
+    output = build_advisor_output(report)
+
+    assert output.hypotheses[0].evidence == ["pearson_r=0.62", "n=40"]
+    test = output.recommended_tests[0]
+    assert test.evidence == ["pearson_r=0.62", "n=40"]
+    assert "mean_center_distance" in test.expected_effect
+    # The expected effect must stay hedged, never a promise of improvement.
+    assert "保証するものではない" in test.expected_effect
 
 
 def test_experiment_history_is_summarized_in_observations():
@@ -113,7 +137,10 @@ def test_never_generates_a_banned_absolute_phrase():
     all_text = " ".join(
         [o.description for o in output.observations]
         + [h.description for h in output.hypotheses]
-        + [t.description + t.measurement_plan + t.decision_criteria for t in output.recommended_tests]
+        + [
+            t.description + t.measurement_plan + t.decision_criteria + t.expected_effect
+            for t in output.recommended_tests
+        ]
         + [c.text for c in output.caveats]
     )
     for phrase in BANNED_ABSOLUTE_PHRASES:

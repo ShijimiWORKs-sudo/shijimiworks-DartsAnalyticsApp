@@ -8,7 +8,7 @@ accidentally blend a factual observation with a hedged hypothesis.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from dartsanalytics.common.enums import DataKind
 
@@ -31,11 +31,19 @@ class Observation:
 class Hypothesis:
     """A candidate explanation — never a definitive cause (AGENTS.md §2:
     "AIに原因を断定させない"). Wraps dartsanalytics.integrated.causes.
-    CandidateCause with the same confidence, unmodified."""
+    CandidateCause with the same confidence, unmodified.
+
+    evidence carries over CandidateCause.supporting_evidence verbatim
+    (docs §8: each piece of advice should show its "evidence" alongside
+    confidence) rather than leaving the correlation numbers implicit in
+    the description text only. data_kind (always ADVICE here) doubles as
+    docs §8's "inference flag" — every Hypothesis is machine-readably
+    marked as inference, never MEASURED/CALCULATED."""
 
     category: str
     description: str
     confidence: float
+    evidence: list[str] = field(default_factory=list)
     data_kind: DataKind = DataKind.ADVICE
 
     def to_dict(self) -> dict:
@@ -43,6 +51,7 @@ class Hypothesis:
             "category": self.category,
             "description": self.description,
             "confidence": self.confidence,
+            "evidence": list(self.evidence),
             "data_kind": self.data_kind.value,
         }
 
@@ -53,13 +62,27 @@ class RecommendedTest:
     module can respond for: "今回試す変更 / 測定方法 / 変更後の判定基準".
     Always points at dartsanalytics.experiments (Phase 8) for the actual
     measurement/decision machinery rather than inventing its own — one
-    verification path, not two."""
+    verification path, not two.
+
+    docs §8 asks each piece of advice to carry evidence / confidence /
+    inference flag / expected effect / recommended change / test protocol
+    / before-after, as far as possible. Mapped onto this dataclass:
+    evidence -> evidence, confidence -> confidence, inference flag ->
+    data_kind (always ADVICE), expected effect -> expected_effect,
+    recommended change -> description, test protocol ->
+    measurement_plan + decision_criteria. before/after is deliberately NOT
+    a field here — it doesn't exist yet at proposal time; it is recorded
+    once the test actually runs, by dartsanalytics.learning_log (docs §9)
+    and dartsanalytics.experiments.comparison (docs §20), not invented as
+    a placeholder here."""
 
     related_category: str
     description: str
     measurement_plan: str
     decision_criteria: str
     confidence: float
+    expected_effect: str = ""
+    evidence: list[str] = field(default_factory=list)
     data_kind: DataKind = DataKind.ADVICE
 
     def to_dict(self) -> dict:
@@ -69,6 +92,8 @@ class RecommendedTest:
             "measurement_plan": self.measurement_plan,
             "decision_criteria": self.decision_criteria,
             "confidence": self.confidence,
+            "expected_effect": self.expected_effect,
+            "evidence": list(self.evidence),
             "data_kind": self.data_kind.value,
         }
 

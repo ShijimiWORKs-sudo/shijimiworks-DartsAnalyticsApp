@@ -104,7 +104,12 @@ def _observations_from_experiment_history(experiment_history: list[Experiment] |
 
 def _hypotheses_from_causes(candidate_causes: list[CandidateCause]) -> list[Hypothesis]:
     return [
-        Hypothesis(category=c.category, description=c.description, confidence=c.confidence)
+        Hypothesis(
+            category=c.category,
+            description=c.description,
+            confidence=c.confidence,
+            evidence=list(c.supporting_evidence),
+        )
         for c in candidate_causes
     ]
 
@@ -123,6 +128,16 @@ def _recommended_tests_from_causes(candidate_causes: list[CandidateCause]) -> li
             ),
             decision_criteria="dartsanalytics.experiments.decide の結果（continue/revert/retest）を判定基準とする。",
             confidence=c.confidence,
+            # Deliberately a hedged direction, not a promised outcome (never
+            # "改善します") — the candidate cause is itself a correlation,
+            # not a proven cause, so the expected effect must stay a
+            # hypothesis too (docs §8's "expected effect" field, but AGENTS.md
+            # §2 forbids stating it as certain).
+            expected_effect=(
+                f"「{c.category}」を変更した場合、{c.outcome_metric_name or '関連する測定指標'}"
+                "に改善方向の変化が見られるかを確認する対象とする（改善を保証するものではない）。"
+            ),
+            evidence=list(c.supporting_evidence),
         )
         for c in candidate_causes
     ]

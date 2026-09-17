@@ -23,6 +23,11 @@ def test_strong_correlation_on_mapped_feature_produces_a_candidate():
     assert "断定" in causes[0].description  # explicitly disclaims certainty
 
 
+def test_outcome_metric_name_carried_over_from_correlation():
+    causes = generate_candidate_causes([_corr("right_elbow_angle_deg", 0.8)])
+    assert causes[0].outcome_metric_name == "vertical_bias"
+
+
 def test_weak_correlation_is_not_proposed():
     causes = generate_candidate_causes([_corr("right_elbow_angle_deg", 0.2)])
     assert causes == []

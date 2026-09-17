@@ -82,6 +82,7 @@ class CandidateCause:
     description: str
     supporting_evidence: list[str]
     confidence: float
+    outcome_metric_name: str = ""  # which measured outcome this candidate was correlated against
     data_kind: DataKind = DataKind.ADVICE
 
     def to_dict(self) -> dict:
@@ -90,6 +91,7 @@ class CandidateCause:
             "description": self.description,
             "supporting_evidence": self.supporting_evidence,
             "confidence": self.confidence,
+            "outcome_metric_name": self.outcome_metric_name,
             "data_kind": self.data_kind.value,
         }
 
@@ -114,6 +116,7 @@ def generate_candidate_causes(correlations: list[FormCorrelation]) -> list[Candi
                 ),
                 supporting_evidence=[f"pearson_r={corr.pearson_r:.3f}", f"n={corr.n}"],
                 confidence=confidence,
+                outcome_metric_name=corr.outcome_metric_name,
             )
         )
     return causes
