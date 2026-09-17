@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Local data (SQLite DB, generated reports) - never committed
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# Media (video/photo originals are user-device only, never in git)
+media/
+
+# OS
+.DS_Store
+Thumbs.db
