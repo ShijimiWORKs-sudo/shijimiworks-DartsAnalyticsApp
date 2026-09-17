@@ -10,7 +10,9 @@ from dartsanalytics.video.ffmpeg_tools import (
     VideoMetadata,
     VideoProbeError,
     extract_sample_frames_gray,
+    extract_sample_frames_rgb,
     probe_metadata,
+    sample_timestamps,
 )
 from dartsanalytics.video.intake import compute_checksum, ingest_video
 from dartsanalytics.video.models import MediaAsset
@@ -31,7 +33,9 @@ __all__ = [
     "VideoMetadata",
     "VideoProbeError",
     "extract_sample_frames_gray",
+    "extract_sample_frames_rgb",
     "probe_metadata",
+    "sample_timestamps",
     "compute_checksum",
     "ingest_video",
     "MediaAsset",

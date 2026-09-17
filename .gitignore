@@ -15,6 +15,11 @@ data/*.db-shm
 # Media (video/photo originals are user-device only, never in git)
 media/
 
+# Downloaded ML model weights (see models/README.md for setup) — binary,
+# not source, and too large/version-specific to commit.
+models/*.task
+models/*.tflite
+
 # OS
 .DS_Store
 Thumbs.db

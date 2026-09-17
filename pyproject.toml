@@ -12,9 +12,18 @@ requires-python = ">=3.10"
 # Phase 3's calibration algorithm only needs thresholding + centroid/area,
 # not Hough transforms. Revisit if a later phase needs more (see AGENTS.md
 # rule: "新規依存関係は必要性を確認").
+#
+# Phase 5 (pose analysis, docs §13) adds:
+#   - mediapipe: real pose landmark detection (BlazePose via the Tasks
+#     API). Hand-rolling a pose estimator is out of scope; this is the
+#     standard lightweight/CPU-friendly choice. IMPORTANT: mediapipe also
+#     needs a one-time local model-file download (not a pip dependency) —
+#     see models/README.md. ffmpeg/ffprobe (Phase 4) are a similar
+#     external-binary dependency, also not installable via pip.
 dependencies = [
     "numpy>=1.26",
     "pillow>=10.0",
+    "mediapipe>=0.10.30",
 ]
 
 [project.optional-dependencies]

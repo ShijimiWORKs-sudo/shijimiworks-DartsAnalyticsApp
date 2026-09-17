@@ -116,15 +116,22 @@ def probe_metadata(path: str | Path) -> VideoMetadata:
         raise VideoProbeError(f"could not parse ffprobe output for {path}: {exc}") from exc
 
 
-def extract_sample_frames_gray(
-    path: str | Path, *, count: int = 5, metadata: VideoMetadata | None = None
-) -> list[np.ndarray]:
-    """Extract `count` evenly-spaced grayscale frames as numpy arrays.
+def sample_timestamps(duration_sec: float, count: int) -> list[float]:
+    """Evenly-spaced sample timestamps, avoiding the first/last ~5% of the
+    clip (the "3秒静止" buffer at each end per the shooting procedure doc)
+    so sampled frames reflect the actual throwing action."""
+    margin = duration_sec * 0.05
+    usable_start, usable_end = margin, max(margin, duration_sec - margin)
+    if usable_end <= usable_start:
+        usable_start, usable_end = 0.0, duration_sec
+    if count == 1:
+        return [duration_sec / 2]
+    return [usable_start + (usable_end - usable_start) * i / (count - 1) for i in range(count)]
 
-    Sampling avoids the first/last ~5% of the clip (the "3秒静止" buffer at
-    each end per the shooting procedure doc) so quality metrics reflect the
-    actual throwing action, not the stationary setup/wind-down.
-    """
+
+def _extract_sample_frames(
+    path: str | Path, *, count: int, pixel_format: str, dtype, metadata: VideoMetadata | None
+) -> list[np.ndarray]:
     path = Path(path)
     meta = metadata or probe_metadata(path)
     if meta.duration_sec <= 0:
@@ -132,16 +139,7 @@ def extract_sample_frames_gray(
     if count < 1:
         raise ValueError(f"count must be >= 1, got {count}")
 
-    margin = meta.duration_sec * 0.05
-    usable_start, usable_end = margin, max(margin, meta.duration_sec - margin)
-    if usable_end <= usable_start:
-        usable_start, usable_end = 0.0, meta.duration_sec
-
-    timestamps = (
-        [meta.duration_sec / 2]
-        if count == 1
-        else [usable_start + (usable_end - usable_start) * i / (count - 1) for i in range(count)]
-    )
+    timestamps = sample_timestamps(meta.duration_sec, count)
 
     frames: list[np.ndarray] = []
     import tempfile
@@ -159,7 +157,7 @@ def extract_sample_frames_gray(
                 "-frames:v",
                 "1",
                 "-vf",
-                "format=gray",
+                f"format={pixel_format}",
                 str(out_path),
             ]
             result = _run(cmd)
@@ -168,6 +166,22 @@ def extract_sample_frames_gray(
                     f"failed to extract frame at t={ts:.2f}s from {path}: {result.stderr.strip()}"
                 )
             with Image.open(out_path) as img:
-                frames.append(np.array(img, dtype=np.float64))
+                frames.append(np.array(img, dtype=dtype))
 
     return frames
+
+
+def extract_sample_frames_gray(
+    path: str | Path, *, count: int = 5, metadata: VideoMetadata | None = None
+) -> list[np.ndarray]:
+    """Extract `count` evenly-spaced grayscale frames as float64 HxW arrays
+    (used by video quality metrics — brightness/sharpness don't need color)."""
+    return _extract_sample_frames(path, count=count, pixel_format="gray", dtype=np.float64, metadata=metadata)
+
+
+def extract_sample_frames_rgb(
+    path: str | Path, *, count: int = 5, metadata: VideoMetadata | None = None
+) -> list[np.ndarray]:
+    """Extract `count` evenly-spaced RGB frames as uint8 HxWx3 arrays (used
+    by pose estimation, which needs color)."""
+    return _extract_sample_frames(path, count=count, pixel_format="rgb24", dtype=np.uint8, metadata=metadata)
