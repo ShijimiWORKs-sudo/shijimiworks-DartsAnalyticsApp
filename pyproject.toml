@@ -3,11 +3,19 @@ name = "dartsanalytics"
 version = "0.0.1"
 description = "DARTSLIVE HOME COUNT-UP throw/form analytics — local-first."
 requires-python = ">=3.10"
-# Phase 0/1 intentionally have zero third-party runtime dependencies
-# (stdlib sqlite3 + dataclasses only). New dependencies are added only
-# when a later phase genuinely needs them (see AGENTS.md rule:
-# "新規依存関係は必要性を確認").
-dependencies = []
+# Phase 0/1 shipped with zero third-party dependencies (stdlib sqlite3 +
+# dataclasses only). Phase 3 (board coordinate analysis) needs image I/O
+# and array/statistics math that stdlib does not provide, so it adds:
+#   - numpy: grouping statistics (std/covariance/percentiles/histograms)
+#   - Pillow: reading board photos and building synthetic test images
+# A full computer-vision library (opencv) is deliberately NOT added yet —
+# Phase 3's calibration algorithm only needs thresholding + centroid/area,
+# not Hough transforms. Revisit if a later phase needs more (see AGENTS.md
+# rule: "新規依存関係は必要性を確認").
+dependencies = [
+    "numpy>=1.26",
+    "pillow>=10.0",
+]
 
 [project.optional-dependencies]
 dev = [
