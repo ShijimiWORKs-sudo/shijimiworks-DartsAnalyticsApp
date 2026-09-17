@@ -108,20 +108,80 @@ confidence不足を直接のトリガーにする結線は未実装（次の改�
 1. **実際の投球動画での検証は依然未実施**：Phase 5のnotesで既に指摘されて
    いた通り、実人物のダーツ投球動画は本セッションには一切無い。
    `multi_angle.py`のテストも合成`PoseFeatures`によるロジック検証のみ。
-2. **品質チェックの「未判定」4項目とPose解析の結線は未実装**：技術的には
-   可能（Phase 5が既にPoseLandmarkerを持つ）だが、実データ無しでの
-   実装は「未検証のロジックを検証済みのように見せる」リスクがあるため
-   意図的に見送った。
-3. **`multi_angle.py`の統合はセッション全体のオーケストレーションに
-   まだ組み込まれていない**：`merge_multi_angle_pose_features()`単体は
-   実装・テスト済みだが、「1セッションの4本の動画をどのShootingAngleか
-   判定し、それぞれをPose解析にかけ、この関数に渡す」という一連の
-   パイプライン（Application Service層の仕事）はまだ書かれていない
-   （§10で作った`SessionRecordingService`にはまだ動画解析系の
-   ユースケースが無い）。
+2. ~~**品質チェックの「未判定」4項目とPose解析の結線は未実装**~~
+   → 2026-09-17追記で対応済み（下記参照）。
+3. ~~**`multi_angle.py`の統合はセッション全体のオーケストレーションに
+   まだ組み込まれていない**~~ → 2026-09-17追記で対応済み（下記参照）。
 4. **fps条件「等」の「等」が指すその他条件**（手ブレ補正設定、対応
    コーデック等）は、スマホ動画撮影手順書に記載の範囲を超えて検証して
    いない。
+
+## 2026-09-17追記：品質チェック↔Pose結線、multi_angleのオーケストレーション結線（release-readiness.md 未解決事項8・9）
+
+上記2・3について、実データが無い状態でも合成`PoseFrame`/`VideoPoseResult`
+でロジック検証できる範囲に限定して実装した（実映像での検証はまだできない
+という制約自体は変わらない — 未対応・既知の制約1は引き続き有効）。
+
+### 未解決事項8：品質チェック4項目とPose confidenceの結線
+
+`src/dartsanalytics/pose/quality_integration.py`（新規）：
+`enrich_quality_result_with_pose(result, pose_result, dominant_side=...)`が、
+`assess_video_quality()`が返す4つの「未評価」チェックのうち3つ
+（`body_fully_visible`/`limbs_not_occluded`/`release_visible`）を、既に
+実行済みの`VideoPoseResult`（Phase 5の`analyze_video_pose()`の出力）から
+実際のpass/fail判定に置き換える。
+
+- `body_fully_visible`：頭部・肩・腰・膝・足首の9ランドマークが信頼度
+  0.5以上で検出されたフレームの割合が80%以上かで判定（利き腕の手首は
+  対象外 — バックスイング中に一時的にフレーム外へ出ても「全身が映って
+  いない」とは見なさない設計）。
+- `limbs_not_occluded`：利き腕の肘・手首の検出割合で判定。
+- `release_visible`：`find_release_candidates()`がリリース候補を検出
+  できたかで判定（できなければ「見えていない」と正直に判定。
+  ヒューリスティックの確信度もdetailに残し、実際のリリース瞬間の確定
+  ではない旨を明記）。
+- `board_visible`は**引き続き`None`のまま**：これは物体検出（ボード/
+  スローライン検出）が必要な項目で、PoseLandmarkerによる人物姿勢推定
+  とは別の能力であり、このコードベースのどのPhaseにも実装されていない
+  ため。「Pose解析結果が未提供」ではなく「検出器が未実装」という、
+  性質の異なる理由であることを明記した。
+
+grade（A/B/C/reshoot）の再計算ロジックは`video/quality.py`側に
+`finalize_quality_result()`として切り出し、`assess_video_quality()`本体と
+このモジュールの両方から同一ロジックを使うようにした（重複によるズレを
+防ぐ）。テスト12件（`tests/test_pose_quality_integration.py`）：各ランド
+マークの信頼度不足・部位欠落・人物検出ゼロ件・利き腕左右・
+リリース候補有無・grade再計算の各ケースを合成データでカバー。
+
+### 未解決事項9：multi_angle.pyのApplication Service層への統合
+
+`src/dartsanalytics/application/session_recording_service.py`に
+`record_pose_features()`（単一角度）と`record_multi_angle_pose_analysis()`
+（複数角度統合）を追加。後者は1トランザクションで以下を行う：
+
+1. 各角度自身の`PoseFeatures`を、既存の`record_pose_features`と同じ
+   仕組み（角度ごとの`media_id`に紐づく`video_analysis_runs`行）で個別に
+   保存 — 統合によって角度ごとの生の推定値が失われない。
+2. `merge_multi_angle_pose_features()`が返す`MultiAngleMergeResult`
+   （採用値・採用元角度・寄与角度一覧・角度間の不一致度）を、既存の
+   `analysis_reports`テーブル（Phase 9のAdvisorOutputと同じ仕組み）へ
+   JSONレポートとして`session_id`紐付けで保存。
+
+`pose_features`テーブルへの「統合済み仮想run」としての書き込みは
+意図的に行っていない（`video_analysis_runs.media_id`はNOT NULL外部キーで
+あり、複数ソースから合成された値が指すべき単一の`media_id`が存在しない
+ため — 新規テーブル追加によるスキーマ変更は指示書§14の停止条件に
+準じるほど大きな変更ではないと判断したが、今回は既存2テーブルの再利用で
+十分と判断し、あえて行わなかった）。
+
+テスト7件（`tests/test_multi_angle_pose_recording.py`）：単一角度の
+round-trip、複数角度統合時の各角度保存＋マージ結果保存、マージ結果の
+実際のDB読み出し確認、空入力の拒否、`media_ids_by_angle`不足時の拒否、
+単一角度時に不一致度が`None`になること、エラー時のロールバック
+（`video_analysis_runs`に部分的な行が残らないこと）。
+
+テスト全体：303件→360件（今回のセッション全体で+19件）、リグレッション
+0件。
 
 ## 結論
 

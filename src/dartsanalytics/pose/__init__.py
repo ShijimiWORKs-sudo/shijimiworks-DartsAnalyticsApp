@@ -8,6 +8,7 @@ from dartsanalytics.pose.landmarker import (
     PoseModelNotFoundError,
 )
 from dartsanalytics.pose.landmarks import NAMED_LANDMARK_INDEX, LandmarkPoint, PoseFrame
+from dartsanalytics.pose.quality_integration import enrich_quality_result_with_pose
 from dartsanalytics.pose.release import ReleaseCandidate, find_release_candidates
 
 __all__ = [
@@ -29,4 +30,5 @@ __all__ = [
     "PoseFrame",
     "ReleaseCandidate",
     "find_release_candidates",
+    "enrich_quality_result_with_pose",
 ]
