@@ -96,8 +96,51 @@ throw_number_in_session)`という2次的な一意制約に別の`throw_id`で�
 ことで実装ミスとして検出できた（指示書§12が求める「回帰テスト」の価値を
 このレイヤー自身が示した例）。
 
+## §9 個人学習ログの実装（本リポジトリ層の上に追加）
+
+指示書§9「intervention / before / change / after / result / analysis・
+model versionを記録可能にし、単一試行だけで因果関係を断定しない」を、
+本DB永続化層の上に追加実装した。
+
+- **migration追加**：`db/schema/0002_learning_log.sql`で
+  `learning_log_entries`テーブルを新設（既存テーブルは変更なし、後方
+  互換）。`experiments`テーブル（測定値の比較）とは分離し、1
+  experimentに対して人間向けの記録（何を変えたか・変更前後の要約・
+  使用したアルゴリズム/モデルバージョン）を追加する設計。
+- **`trial_number`の自動採番**：`SqliteLearningLogRepository
+  .next_trial_number(intervention_description)`が、同じ介入内容が
+  過去何回試されたかをDBから直接計算して返す。呼び出し側が回数を
+  手動管理する必要がなく、カウント誤りによる「実は複数回試しているのに
+  1回目と誤認する」バグを防ぐ。
+- **因果断定の禁止を実行可能なロジックにした**：
+  `learning_log/analysis.py`の`causal_confidence_note(trial_count)`は、
+  試行回数に応じて必ず「まだ結論を出せない」という注意文を返す
+  （1回目＝単一試行、2回目以上＝交絡要因への言及、多数回＝それでも
+  対照群のない単一被験者記録である旨）。どの段階でも「原因が確認された」
+  「証明された」という文言は返さない設計であることをテストで保証
+  （`test_causal_confidence_note_never_confirms`）。これはPhase 9の
+  `advisor.generate`が持つ`BANNED_ABSOLUTE_PHRASES`と同じ設計思想を
+  学習ログ側にも適用したもの。
+- **テスト**：`tests/test_learning_log.py`（9件）＋
+  `tests/test_session_recording_service.py`に1件追加
+  （`test_learning_log_entry_lifecycle`：記録→結果更新→2回目の試行→
+  履歴取得までの一連の流れをApplication Service経由で確認）。
+
 ## 既知の未対応・今後の課題
 
+- **§10「保存対象候補」の一部は未対応**：指示書§10が例示する保存対象
+  （account/player/game session/COUNT-UP/round/throw/score/coordinate/
+  video metadata/video analysis/calibration/equipment/grip metadata/
+  advice/evidence/experiment/validation/**BLE observation**/**settings**）
+  のうち、**BLE observation**と**settings**は対応するテーブルがまだ
+  存在しない（Phase 0時点のスキーマに無く、今回は新規テーブル追加を
+  最小限＝学習ログ用の1テーブルのみに留めた）。BLEは§3（実機検証）が
+  ユーザー操作待ちで未実施のため観測データ自体がまだ存在せず、テーブル
+  設計を先行して行うと「取得できるデータの形」を推測することになり
+  指示書§14の「外部仕様不明で推測実装になる場合は停止する」に抵触しうる
+  ため、意図的に見送った。settingsは現時点でアプリ設定の具体的な項目が
+  未確定（UI未実装のため）であり、同様に見送った。どちらも今回追加した
+  `migrate.py`のマイグレーション機構で後から追加できる。
 - **UI層は存在しない**：`SessionRecordingService`はUI相当の呼び出し口を
   実証する参照実装だが、実際のUI（CLI/GUI/モバイル等）はこのプロジェクトの
   スコープにまだ含まれていない（指示書自身も「DB persistence」を「UI」とは
@@ -122,6 +165,7 @@ throw_number_in_session)`という2次的な一意制約に別の`throw_id`で�
 ## 結論
 
 指示書§10の要求（Repository/DAOパターンによる永続化レイヤー、restart・
-migration・rollback・duplicate・corrupt-dataの検証）は実装・テストとも
-完了。267件だった既存テストは全て引き続き合格し、新規17件を加えた
-計284件が合格（`python -m pytest -q` で確認、リグレッションなし）。
+migration・rollback・duplicate・corrupt-dataの検証）と§9（個人学習ログ）
+は実装・テストとも完了。267件だった既存テストは全て引き続き合格し、
+新規26件（リポジトリ17件＋学習ログ9件、Application Serviceテスト含む）
+を加えた計293件が合格（`python -m pytest -q` で確認、リグレッションなし）。

@@ -38,6 +38,7 @@ from dartsanalytics.experiments.comparison import ExperimentComparison
 from dartsanalytics.experiments.decision import Decision
 from dartsanalytics.experiments.models import Experiment
 from dartsanalytics.grip.analysis import GripAnalysisResult
+from dartsanalytics.learning_log.models import LearningLogEntry
 from dartsanalytics.models.entities import (
     Account,
     CountupRound,
@@ -606,3 +607,69 @@ class SqliteExperimentRepository:
             "SELECT * FROM experiment_results WHERE experiment_id = ?", (experiment_id,)
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+class SqliteLearningLogRepository:
+    """§9. Requires migration 0002_learning_log.sql to have been applied
+    (SqliteUnitOfWork always runs apply_migrations() on connect, so any
+    caller going through the UnitOfWork gets this automatically)."""
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def save_entry(self, entry: LearningLogEntry) -> None:
+        self._conn.execute(
+            "INSERT INTO learning_log_entries "
+            "(entry_id, experiment_id, intervention_description, before_summary, "
+            "change_description, after_summary, result_summary, model_versions_json, "
+            "trial_number, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(entry_id) DO UPDATE SET "
+            "after_summary=excluded.after_summary, result_summary=excluded.result_summary",
+            (
+                entry.entry_id,
+                entry.experiment_id,
+                entry.intervention_description,
+                entry.before_summary,
+                entry.change_description,
+                entry.after_summary,
+                entry.result_summary,
+                json.dumps(entry.model_versions),
+                entry.trial_number,
+                entry.created_at,
+            ),
+        )
+
+    def get_entry(self, entry_id: str) -> LearningLogEntry | None:
+        row = self._conn.execute(
+            "SELECT * FROM learning_log_entries WHERE entry_id = ?", (entry_id,)
+        ).fetchone()
+        return LearningLogEntry.from_row(dict(row)) if row else None
+
+    def list_entries_by_intervention(self, intervention_description: str) -> list[LearningLogEntry]:
+        rows = self._conn.execute(
+            "SELECT * FROM learning_log_entries WHERE intervention_description = ? "
+            "ORDER BY trial_number",
+            (intervention_description,),
+        ).fetchall()
+        return [LearningLogEntry.from_row(dict(r)) for r in rows]
+
+    def list_all_entries(self) -> list[LearningLogEntry]:
+        rows = self._conn.execute(
+            "SELECT * FROM learning_log_entries ORDER BY created_at"
+        ).fetchall()
+        return [LearningLogEntry.from_row(dict(r)) for r in rows]
+
+    def next_trial_number(self, intervention_description: str) -> int:
+        """1 for a never-before-seen intervention_description, otherwise
+        one past the highest trial_number already recorded for it — so
+        callers don't have to track trial counts themselves and can't
+        accidentally reuse a number (which would corrupt the "how many
+        times has this actually been tried" count §9's caution logic
+        depends on)."""
+        row = self._conn.execute(
+            "SELECT MAX(trial_number) AS max_trial FROM learning_log_entries "
+            "WHERE intervention_description = ?",
+            (intervention_description,),
+        ).fetchone()
+        current_max = row["max_trial"]
+        return (current_max or 0) + 1

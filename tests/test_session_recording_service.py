@@ -91,3 +91,41 @@ def test_record_experiment_decision(tmp_path):
     service2 = _service(tmp_path)
     history = service2.get_session_history("nonexistent-player")
     assert history == []  # sanity: unrelated query still works against the same file
+
+
+def test_learning_log_entry_lifecycle(tmp_path):
+    service = _service(tmp_path)
+    with SqliteUnitOfWork(tmp_path / "service_test.db") as uow:
+        intervention_id = uow.analysis_reports.save_intervention(None, "リリースタイミング調整")
+    experiment = Experiment(
+        intervention_id=intervention_id, baseline_session_ids=["s1"], status="baseline",
+    )
+    service.record_experiment(experiment)
+
+    entry = service.record_learning_log_entry(
+        experiment_id=experiment.experiment_id,
+        intervention_description="リリースを0.1秒遅らせる",
+        before_summary="平均220点、BULL率8%",
+        change_description="リリースタイミングを0.1秒遅らせる",
+        model_versions={"pose": "pose_landmarker_v1"},
+    )
+    assert entry.trial_number == 1
+
+    service.update_learning_log_entry_outcome(
+        entry.entry_id, after_summary="平均228点、BULL率10%", result_summary="continue",
+    )
+
+    # A second trial of the SAME intervention gets trial_number 2.
+    entry2 = service.record_learning_log_entry(
+        experiment_id=experiment.experiment_id,
+        intervention_description="リリースを0.1秒遅らせる",
+        before_summary="平均219点、BULL率7%",
+        change_description="リリースタイミングを0.1秒遅らせる（再試行）",
+        model_versions={"pose": "pose_landmarker_v1"},
+    )
+    assert entry2.trial_number == 2
+
+    history = service.get_intervention_history("リリースを0.1秒遅らせる")
+    assert history.trial_count == 2
+    assert "断定" in history.caution  # still cautious even with 2 trials
+    assert history.entries[0].after_summary == "平均228点、BULL率10%"

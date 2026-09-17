@@ -35,6 +35,7 @@ from dartsanalytics.db.repositories.sqlite_repositories import (
     SqliteEquipmentRepository,
     SqliteExperimentRepository,
     SqliteGripAnalysisRepository,
+    SqliteLearningLogRepository,
     SqliteMediaRepository,
     SqlitePlayerRepository,
     SqlitePoseFeatureRepository,
@@ -60,6 +61,7 @@ class SqliteUnitOfWork:
         self.grip_runs = SqliteGripAnalysisRepository(self.conn)
         self.analysis_reports = SqliteAnalysisReportRepository(self.conn)
         self.experiments = SqliteExperimentRepository(self.conn)
+        self.learning_log = SqliteLearningLogRepository(self.conn)
         return self
 
     def __exit__(

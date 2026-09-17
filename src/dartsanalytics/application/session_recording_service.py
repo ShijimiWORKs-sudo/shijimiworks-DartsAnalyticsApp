@@ -27,6 +27,8 @@ from dartsanalytics.db.unit_of_work import SqliteUnitOfWork
 from dartsanalytics.experiments.comparison import ExperimentComparison
 from dartsanalytics.experiments.models import Experiment
 from dartsanalytics.grip.analysis import GripAnalysisResult
+from dartsanalytics.learning_log.analysis import InterventionHistory, summarize_intervention_history
+from dartsanalytics.learning_log.models import LearningLogEntry
 from dartsanalytics.models.entities import Account, Player, PracticeSession
 from dartsanalytics.video.models import MediaAsset
 
@@ -92,3 +94,60 @@ class SessionRecordingService:
         with SqliteUnitOfWork(self._db_path) as uow:
             uow.experiments.save(experiment)
             uow.experiments.save_results(experiment.experiment_id, comparison)
+
+    def record_learning_log_entry(
+        self,
+        *,
+        experiment_id: str,
+        intervention_description: str,
+        before_summary: str,
+        change_description: str,
+        model_versions: dict[str, str],
+        after_summary: str | None = None,
+        result_summary: str | None = None,
+    ) -> LearningLogEntry:
+        """Records one trial of an intervention (§9). trial_number is
+        assigned automatically from how many times this exact
+        intervention_description has been logged before, so the caller
+        never has to track — or risk miscounting — that itself."""
+        with SqliteUnitOfWork(self._db_path) as uow:
+            trial_number = uow.learning_log.next_trial_number(intervention_description)
+            entry = LearningLogEntry(
+                experiment_id=experiment_id,
+                intervention_description=intervention_description,
+                before_summary=before_summary,
+                change_description=change_description,
+                trial_number=trial_number,
+                model_versions=model_versions,
+                after_summary=after_summary,
+                result_summary=result_summary,
+            )
+            uow.learning_log.save_entry(entry)
+            return entry
+
+    def update_learning_log_entry_outcome(
+        self, entry_id: str, *, after_summary: str, result_summary: str
+    ) -> None:
+        """Fills in after/result once the test phase has been measured —
+        an entry is normally created at intervention time (before/change
+        known, after/result not yet) and updated once the experiment is
+        decided."""
+        with SqliteUnitOfWork(self._db_path) as uow:
+            entry = uow.learning_log.get_entry(entry_id)
+            if entry is None:
+                raise ValueError(f"no learning log entry with id {entry_id!r}")
+            entry.after_summary = after_summary
+            entry.result_summary = result_summary
+            uow.learning_log.save_entry(entry)
+
+    def get_intervention_history(self, intervention_description: str) -> InterventionHistory:
+        """Returns every trial of this intervention plus the mandatory
+        causal-confidence caution (see
+        dartsanalytics.learning_log.analysis.causal_confidence_note) — a
+        UI should always show this caution alongside the trial list, never
+        just the latest result."""
+        with SqliteUnitOfWork(self._db_path) as uow:
+            entries = uow.learning_log.list_entries_by_intervention(intervention_description)
+        if not entries:
+            raise ValueError(f"no learning log entries for {intervention_description!r}")
+        return summarize_intervention_history(entries)

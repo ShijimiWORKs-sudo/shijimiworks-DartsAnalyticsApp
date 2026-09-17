@@ -23,6 +23,7 @@ EXPECTED_TABLES = {
     "interventions",
     "experiments",
     "experiment_results",
+    "learning_log_entries",
     "schema_migrations",
 }
 
@@ -57,7 +58,11 @@ def test_apply_migrations_is_idempotent():
 def test_schema_version_reported(db_conn):
     version = schema_version(db_conn)
     assert version is not None
-    assert version.startswith("0001")
+    # The latest applied migration's stem — asserted against
+    # available_migrations() rather than a hardcoded "0001" prefix, so this
+    # test doesn't need editing every time a new migration file is added
+    # (0002_learning_log.sql, etc.).
+    assert version == available_migrations()[-1].stem
 
 
 def test_migration_test_db_is_isolated_from_real_db(tmp_path):
