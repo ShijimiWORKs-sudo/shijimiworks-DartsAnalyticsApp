@@ -1,6 +1,9 @@
 """Phase 0 migration tests."""
 
+import pytest
+
 from dartsanalytics.db import apply_migrations, available_migrations, connect, schema_version
+from dartsanalytics.db.migrate import _apply_migration_sql, _ensure_migrations_table, _split_sql_statements
 
 EXPECTED_TABLES = {
     "accounts",
@@ -71,3 +74,59 @@ def test_migration_test_db_is_isolated_from_real_db(tmp_path):
     from dartsanalytics.db import DEFAULT_DB_PATH
 
     assert file_db_path != DEFAULT_DB_PATH
+
+
+def test_split_sql_statements_strips_comments_and_splits_on_semicolon():
+    sql = """
+    -- a comment line
+    CREATE TABLE a (id TEXT);
+    CREATE TABLE b (id TEXT);
+    """
+    statements = _split_sql_statements(sql)
+    assert len(statements) == 2
+    assert all("--" not in s for s in statements)
+
+
+def test_partial_migration_failure_rolls_back_cleanly():
+    """A migration that fails partway through must not leave any of its
+    tables behind, and must not be recorded as applied — otherwise a retry
+    would hit 'table already exists' forever (the bug this test guards
+    against; see migrate.py module docstring)."""
+    conn = connect(":memory:")
+    try:
+        _ensure_migrations_table(conn)
+        broken_sql = """
+        CREATE TABLE ok_table_1 (id TEXT);
+        CREATE TABLE ok_table_2 (id TEXT);
+        THIS IS NOT VALID SQL;
+        """
+        with pytest.raises(Exception):
+            _apply_migration_sql(conn, "9999_broken", broken_sql)
+
+        tables = {
+            row["name"]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            ).fetchall()
+        }
+        assert "ok_table_1" not in tables
+        assert "ok_table_2" not in tables
+
+        applied = {
+            row["version"] for row in conn.execute("SELECT version FROM schema_migrations").fetchall()
+        }
+        assert "9999_broken" not in applied
+
+        # Retrying after "fixing" the migration (here: just applying valid
+        # SQL under the same version) must succeed — proof the rollback
+        # left no partial state to collide with.
+        _apply_migration_sql(conn, "9999_broken", "CREATE TABLE ok_table_1 (id TEXT);")
+        tables_after_retry = {
+            row["name"]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            ).fetchall()
+        }
+        assert "ok_table_1" in tables_after_retry
+    finally:
+        conn.close()
