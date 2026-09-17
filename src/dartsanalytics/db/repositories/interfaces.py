@@ -1,0 +1,99 @@
+"""Repository Interface tier (docs §10 resolution).
+
+These are ``typing.Protocol`` classes, not ABCs: the Application Service
+layer type-checks against them structurally, and tests can supply any
+object with matching methods (e.g. a future in-memory fake) without
+inheriting from anything. The one implementation that exists today is
+``dartsanalytics.db.repositories.sqlite_repositories`` (SQLite, via the
+0001_initial.sql schema).
+
+None of these repositories opens or commits a transaction itself — that is
+the ``UnitOfWork``'s job (dartsanalytics.db.unit_of_work). A repository
+method runs against whatever connection it was constructed with and leaves
+transaction boundaries to the caller, so several repositories can
+participate in one atomic write.
+"""
+
+from __future__ import annotations
+
+from typing import Protocol
+
+from dartsanalytics.advisor.models import AdvisorOutput
+from dartsanalytics.board.calibration import BoardCalibration
+from dartsanalytics.experiments.comparison import ExperimentComparison
+from dartsanalytics.experiments.models import Experiment
+from dartsanalytics.grip.analysis import GripAnalysisResult
+from dartsanalytics.models.entities import Account, EquipmentProfile, Player, PracticeSession
+from dartsanalytics.pose.features import PoseFeatures
+from dartsanalytics.video.models import MediaAsset
+
+
+class AccountRepository(Protocol):
+    def save(self, account: Account) -> None: ...
+    def get(self, account_id: str) -> Account | None: ...
+    def list_all(self) -> list[Account]: ...
+
+
+class PlayerRepository(Protocol):
+    def save(self, player: Player) -> None: ...
+    def get(self, player_id: str) -> Player | None: ...
+    def list_by_account(self, account_id: str) -> list[Player]: ...
+
+
+class EquipmentRepository(Protocol):
+    def save(self, profile: EquipmentProfile) -> None: ...
+    def get(self, equipment_id: str) -> EquipmentProfile | None: ...
+    def list_by_player(self, player_id: str) -> list[EquipmentProfile]: ...
+
+
+class SessionRepository(Protocol):
+    """Persists a PracticeSession together with its rounds and throws.
+
+    ``save_session`` is expected to be all-or-nothing: if any row (session,
+    a round, a throw) fails a constraint, the caller's UnitOfWork rolls the
+    whole write back rather than leaving a partial session on disk.
+    """
+
+    def save_session(self, session: PracticeSession) -> None: ...
+    def get_session(self, session_id: str) -> PracticeSession | None: ...
+    def list_sessions_by_player(self, player_id: str) -> list[PracticeSession]: ...
+
+
+class CalibrationRepository(Protocol):
+    def save(self, calibration: BoardCalibration, *, session_id: str | None = None) -> str: ...
+    def get(self, calibration_id: str) -> tuple[BoardCalibration, str | None] | None: ...
+
+
+class MediaRepository(Protocol):
+    def save(self, asset: MediaAsset) -> None: ...
+    def get(self, media_id: str) -> MediaAsset | None: ...
+    def list_by_session(self, session_id: str) -> list[MediaAsset]: ...
+
+
+class PoseFeatureRepository(Protocol):
+    def save_run(self, media_id: str, algorithm_version: str, status: str) -> str: ...
+    def save_features(
+        self, run_id: str, features: PoseFeatures, *, throw_id: str | None = None
+    ) -> None: ...
+    def list_features_by_run(self, run_id: str) -> dict[str, dict]: ...
+
+
+class GripAnalysisRepository(Protocol):
+    def save(
+        self, media_id: str, result: GripAnalysisResult, algorithm_version: str
+    ) -> str: ...
+    def get(self, grip_run_id: str) -> dict | None: ...
+
+
+class AnalysisReportRepository(Protocol):
+    def save_report(self, session_id: str, report_json: str) -> str: ...
+    def save_hypothesis(self, report_id: str, description: str, confidence: float) -> str: ...
+    def save_intervention(self, hypothesis_id: str | None, description: str) -> str: ...
+    def save_advisor_output(self, session_id: str, advisor_output: AdvisorOutput) -> str: ...
+
+
+class ExperimentRepository(Protocol):
+    def save(self, experiment: Experiment) -> None: ...
+    def get(self, experiment_id: str) -> Experiment | None: ...
+    def save_results(self, experiment_id: str, comparison: ExperimentComparison) -> None: ...
+    def list_results(self, experiment_id: str) -> list[dict]: ...
