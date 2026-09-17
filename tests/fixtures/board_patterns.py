@@ -34,3 +34,22 @@ def one_outlier() -> list[tuple[float, float]]:
     """23 throws tightly grouped near center, one far outlier."""
     tight = [(0.01 * (i % 3 - 1), 0.01 * ((i + 1) % 3 - 1)) for i in range(23)]
     return tight + [(0.9, 0.9)]
+
+
+def bull_heavy_with_outliers() -> list[tuple[float, float]]:
+    """20 throws dead-center (well inside the BULL ring) + 4 wide-scatter
+    outliers. Built for docs §5's "単に「ブル率が高い＝まとまっている」と
+    判定しない" (don't judge "high BULL rate" as "well grouped") — bull_rate
+    is high (20/24 ≈ 0.83) while max_distance/rms_distance/percentile
+    radii are all large because of the 4 outliers, proving the two metric
+    families move independently."""
+    center = [(0.0, 0.0)] * 20
+    outliers = [(0.6, 0.6), (-0.6, 0.6), (0.6, -0.6), (-0.6, -0.6)]
+    return center + outliers
+
+
+def tight_but_off_target() -> list[tuple[float, float]]:
+    """24 throws tightly clustered together, but the whole cluster sits far
+    from BULL. The mirror image of bull_heavy_with_outliers: proves tight
+    grouping-quality numbers do NOT imply a high bull_rate."""
+    return [(0.4 + 0.005 * (i % 3 - 1), 0.4 + 0.005 * ((i + 1) % 3 - 1)) for i in range(24)]

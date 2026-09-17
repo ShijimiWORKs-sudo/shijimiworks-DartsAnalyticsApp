@@ -11,8 +11,10 @@ from tests.fixtures.board_patterns import (
     all_center,
     all_high,
     all_low,
+    bull_heavy_with_outliers,
     left_right_even_split,
     one_outlier,
+    tight_but_off_target,
 )
 
 
@@ -102,3 +104,37 @@ def test_bull_rate_matches_manual_count():
     points = [(0.0, 0.0)] * 5 + [(0.5, 0.5)] * 5  # 5 in bull, 5 far outside
     stats = compute_grouping_stats(points)
     assert stats.bull_rate == pytest.approx(0.5)
+
+
+def test_cep_radius_equals_p50_percentile_radius():
+    stats = compute_grouping_stats(one_outlier())
+    assert stats.cep_radius == stats.percentile_radii["p50"]
+
+
+def test_high_bull_rate_does_not_imply_tight_grouping_metrics():
+    """docs §5: don't judge 'high BULL rate' as 'well grouped'. Mostly
+    BULL + a few wild outliers has a high bull_rate AND large spread
+    numbers at the same time — the two metric families are independent,
+    not substitutes for each other."""
+    stats = compute_grouping_stats(bull_heavy_with_outliers())
+    assert stats.bull_rate == pytest.approx(20 / 24)
+    assert stats.bull_rate > 0.8  # "high BULL rate"
+    # ...but grouping-quality metrics are NOT small just because bull_rate is high.
+    assert stats.max_distance > 0.5
+    assert stats.rms_distance > 0.2
+    assert stats.percentile_radii["p95"] > 0.5
+
+
+def test_tight_grouping_does_not_imply_high_bull_rate():
+    """Mirror case: a tightly clustered group (small std/rms/percentile
+    radii) can still have bull_rate == 0 if the whole cluster is off
+    BULL. Precision (grouping quality) and accuracy (BULL rate) are
+    orthogonal, and a report must show both, not just one."""
+    stats = compute_grouping_stats(tight_but_off_target())
+    assert stats.bull_rate == 0.0
+    assert stats.bull_vicinity_rate == 0.0
+    # ...but grouping-quality metrics show a very tight, low-spread cluster.
+    assert stats.std_x < 0.01
+    assert stats.std_y < 0.01
+    assert stats.max_distance < 0.02
+    assert stats.cep_radius < 0.02

@@ -35,6 +35,35 @@ DEFAULT_BULL_VICINITY_RADIUS = 0.15
 
 @dataclass(frozen=True)
 class GroupingStats:
+    """docs §5: "BULL率とグルーピング品質を分離する" — this dataclass keeps
+    that separation as two independent metric families, not one blended
+    score:
+
+      * ACCURACY (狙った場所＝BULLに対する近さ): bull_rate,
+        bull_vicinity_rate, vertical_bias, horizontal_bias — all measured
+        relative to the true board center (0, 0).
+      * PRECISION/グルーピング品質 (まとまり具合, 狙いがどこであれ): std_x,
+        std_y, covariance_xy, mean_center_distance, rms_distance,
+        max_distance, percentile_radii, cep_radius — all measured relative
+        to this GROUP's own centroid (group_center_x/y), not BULL.
+
+    A high bull_rate does NOT imply tight grouping-quality numbers (a
+    mostly-bull session with a few wild outliers has both), and tight
+    grouping-quality numbers do NOT imply a high bull_rate (a tightly
+    grouped but off-center session can have bull_rate == 0). See
+    tests/test_grouping.py::test_high_bull_rate_does_not_imply_tight_grouping_metrics
+    and ::test_tight_grouping_does_not_imply_high_bull_rate for the
+    fixtures that pin this down.
+
+    cep_radius ("Circular Error Probable") here means the classic
+    precision-CEP: the radius, centered on this group's OWN centroid, that
+    contains 50% of the shots (== percentile_radii["p50"]). It is NOT
+    accuracy-CEP (radius from the true aim point/BULL) — conflating the two
+    would silently re-introduce the "BULL率＝まとまり" confusion docs §5
+    warns against, so this module deliberately keeps CEP as a precision-only
+    metric and leaves BULL-relative accuracy to bull_rate/bull_vicinity_rate.
+    """
+
     n: int
     group_center_x: float
     group_center_y: float
@@ -45,6 +74,7 @@ class GroupingStats:
     rms_distance: float
     max_distance: float
     percentile_radii: dict[str, float]  # keys: "p50", "p75", "p90", "p95"
+    cep_radius: float  # == percentile_radii["p50"]; named explicitly (docs §5's own term)
     bull_rate: float
     bull_vicinity_rate: float
     vertical_bias: float  # mean normalized_y; positive = struck above board center
@@ -62,6 +92,7 @@ class GroupingStats:
             "rms_distance": self.rms_distance,
             "max_distance": self.max_distance,
             "percentile_radii": self.percentile_radii,
+            "cep_radius": self.cep_radius,
             "bull_rate": self.bull_rate,
             "bull_vicinity_rate": self.bull_vicinity_rate,
             "vertical_bias": self.vertical_bias,
@@ -112,6 +143,7 @@ def compute_grouping_stats(
         rms_distance=rms_distance,
         max_distance=max_distance,
         percentile_radii=percentile_radii,
+        cep_radius=percentile_radii["p50"],
         bull_rate=bull_rate,
         bull_vicinity_rate=bull_vicinity_rate,
         vertical_bias=group_center_y,
