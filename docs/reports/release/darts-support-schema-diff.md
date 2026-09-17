@@ -111,3 +111,60 @@ sync_state / analysis_version` という最小フィールドを定義してい�
    最も近い可能性がある。
 
 このセッションはこの4択について推測で実装を進めず、報告のみとする。
+
+## 2026-09-17追記：ユーザーが選択肢4を選択、DartsAnalyticsApp側の実装完了
+
+ユーザーが4択のうち**選択肢4（DartsSupportApp側のOpenAI API連携の拡張
+ポイントを使い、`source_type='darts_analytics_app'`のような形で流し込む）**
+を選択した。これを受けて、DartsAnalyticsApp側のエクスポート実装を追加した：
+
+### 実装：`src/dartsanalytics/contract/support_app_assessment.py`
+
+DartsSupportApp既存の`src/domain/assessment.ts`が持つ15見出し
+（`assessmentHeadingMap`：総合評価/良かった点/改善が必要な点/スタンス/
+構え/テイクバック/リリース/フォロースルー/頭・肩・肘の動き/3投の
+再現性/前回評価から改善した点/まだ改善していない点/次回、最優先で
+意識すること/おすすめ練習メニュー/評価の確信度）をそのまま流用し、
+DartsAnalyticsAppの`IntegratedAnalysisReport`/`AdvisorOutput`から
+`ai_form_assessments`の列（`raw_text`/`raw_hash`/`parsed_json`/
+`parse_status`/`recognized_heading_count`）に対応するドラフトを生成する。
+
+- **`raw_hash`はDartsSupportApp既存の`hashAssessmentRawText()`
+  （FNV-1a風32bitハッシュ）をPythonに移植**し、実際にNode.jsで元のJS
+  関数を実行した結果と突き合わせて一致することを確認済み（ASCII文字列
+  ("a") と日本語混じりテキストの両方でハッシュ値が完全一致）。
+- 姿勢推定カテゴリ（スタンス/構え/テイクバック/リリース/フォロースルー/
+  頭・肩・肘の動き）はPhase 5のPose特徴量が`IntegratedAnalysisReport`に
+  まだ結線されていないため、DartsSupportApp自身のChatGPTプロンプトが
+  使う既存の文言「映像では判断できない」で正直に埋めている（推測で
+  それらしい内容を生成しない）。
+- 原因候補（`Hypothesis`）・改善提案（`RecommendedTest`）は、本アプリの
+  既存の断定回避ルール（AGENTS.md §2）をそのまま維持して転記。
+  「次回、最優先で意識すること」はDartsSupportApp自身のプロンプトの
+  既存指示「最大2点に絞ってください」に合わせて上位2件に制限。
+
+### 実装しなかったこと（意図的、範囲外）
+
+- **`source_type`列の追加自体（DartsSupportApp側のスキーマ変更）**：
+  2026-09-17時点でDartsSupportApp実リポジトリの`src/db/schema.ts`を
+  確認した限り、この列はまだ存在しない
+  （`docs/IMPLEMENTATION_NOTES.md`に「列追加で分離できる」という
+  記述があるのみ）。DartsAnalyticsApp側は`source_type=
+  'darts_analytics_app'`という値を**提案として**出力するが、実際に
+  DartsSupportApp側のマイグレーションを書く・DBに書き込む作業は
+  別リポジトリへの変更であり、このセッションでは行っていない
+  （指示書§11/§14：DartsSupportApp側の破壊的変更にはユーザーの明示的な
+  依頼が必要という停止条件に該当するため）。
+- DartsSupportApp側の実際のimport処理（このJSON/テキストを
+  `ai_form_assessments`テーブルへ実際に挿入するコード）も同様に
+  DartsSupportAppリポジトリ側の作業であり、範囲外。
+
+### テスト
+
+`tests/test_support_app_assessment.py`（新規14件）：15見出し全出力、
+`parsed_json`のキー整合性、Pose未結線カテゴリの正直な「映像では判断
+できない」表示、候補原因ゼロ時の「未登録」、断定的表現が含まれない
+ことの回帰チェック、上位2件への絞り込み、ハッシュの決定性・内容依存性、
+`source_type`提案値、session_id不一致時のエラー、外部ID
+（`account_id`/`player_id`/`practice_session_id`）の受け渡し、前回
+比較テキストの受け渡し。全て合格（テスト全体は327件→341件）。
