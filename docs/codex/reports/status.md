@@ -1,6 +1,6 @@
 # DartsAnalyticsApp — 進捗ステータス
 
-最終更新: 2026-09-17（このセッションでの作業分、Phase 8完了時点）
+最終更新: 2026-09-17（このセッションでの作業分、Phase 9完了時点）
 
 ## 完了したPhase
 
@@ -15,15 +15,16 @@
 | 6: Grip Analysis | 完了（実写真未検証、下記参照） | `codex/phase-6-grip-analysis` |
 | 7: Integrated Analysis | 完了（一部カテゴリ意図的未実装、下記参照） | `codex/phase-7-integrated-analysis` |
 | 8: Experiment System | 完了（DB永続化は未実装、下記参照） | `codex/phase-8-experiments` |
+| 9: Local AI Advisor | 完了（外部LLM未使用・テンプレートベース、下記参照） | `codex/phase-9-local-ai` |
 
-9本のbranchはスタック構成（0→1→2→3→4→5→6→7→8の順に積み重ね）。まだ `main`
-へのマージもGitHubへのpushも行っていない（下記「未解決事項」参照）。全ブラン
-チで`pytest` 248件パス、`scripts/bootstrap_check.py` 成功を確認済み（最新
-branch `codex/phase-8-experiments` 時点）。
+10本のbranchはスタック構成（0→1→2→3→4→5→6→7→8→9の順に積み重ね）。まだ
+`main`へのマージもGitHubへのpushも行っていない（下記「未解決事項」参照）。
+全ブランチで`pytest` 259件パス、`scripts/bootstrap_check.py` 成功を確認済み
+（最新branch `codex/phase-9-local-ai` 時点）。
 
 ## 未着手のPhase
 
-9（ローカルAIアドバイザー）、10（DartsSupportApp連携）。
+10（DartsSupportApp連携）。
 
 ## 未解決事項・ユーザー判断が必要な事項
 
@@ -71,6 +72,10 @@ branch `codex/phase-8-experiments` 時点）。
     dataclassに対する計算ロジックのみ提供している（意図的な段階的
     スコープ縮小 — DB結線は将来のPhase、またはこのままの範囲で
     ユーザー判断が必要）。
+12. **Phase 9のAIアドバイザーは外部LLM/AI APIを一切呼ばない**：決定的な
+    テンプレートベース実装（`phase9_notes.md`参照）。自然な文章生成や
+    より柔軟な仮説生成が必要な場合、外部/ローカルLLMの追加は将来の
+    ユーザー判断事項。
 
 ## 依存関係
 
@@ -82,7 +87,7 @@ Phase 6は新規pip依存なし（Phase 5のmediapipeを再利用、HandLandmark
 
 ## 次にやること
 
-- 上記「未解決事項1」が解消され次第、9branch分をpushしてDraft PRを作成。
+- 上記「未解決事項1」が解消され次第、10branch分をpushしてDraft PRを作成。
 - 「未解決事項6・8」（実データでの検証）はユーザー側での実機・実データ提供が
   必要。それまでは測定値ではなく推定値として明示され続ける（設計原則通り）。
-- 「開発フローの原則」に従い、Phase 9（ローカルAIアドバイザー）以降へ継続。
+- 「開発フローの原則」に従い、Phase 10（DartsSupportApp Contract）以降へ継続。
