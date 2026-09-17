@@ -1,6 +1,6 @@
 # DartsAnalyticsApp — 進捗ステータス
 
-最終更新: 2026-09-17（このセッションでの作業分、Phase 6完了時点）
+最終更新: 2026-09-17（このセッションでの作業分、Phase 7完了時点）
 
 ## 完了したPhase
 
@@ -13,15 +13,16 @@
 | 4: Video Intake & Shooting Guide | 完了 | `codex/phase-4-video-intake` |
 | 5: Pose Analysis | 完了（実写真未検証、下記参照） | `codex/phase-5-pose-analysis` |
 | 6: Grip Analysis | 完了（実写真未検証、下記参照） | `codex/phase-6-grip-analysis` |
+| 7: Integrated Analysis | 完了（一部カテゴリ意図的未実装、下記参照） | `codex/phase-7-integrated-analysis` |
 
-7本のbranchはスタック構成（0→1→2→3→4→5→6の順に積み重ね）。まだ `main` への
-マージもGitHubへのpushも行っていない（下記「未解決事項」参照）。全ブランチで
-`pytest` 186件パス、`scripts/bootstrap_check.py` 成功を確認済み（最新
-branch `codex/phase-6-grip-analysis` 時点）。
+8本のbranchはスタック構成（0→1→2→3→4→5→6→7の順に積み重ね）。まだ `main` へ
+のマージもGitHubへのpushも行っていない（下記「未解決事項」参照）。全ブランチで
+`pytest` 227件パス、`scripts/bootstrap_check.py` 成功を確認済み（最新
+branch `codex/phase-7-integrated-analysis` 時点）。
 
 ## 未着手のPhase
 
-7（統合解析）、8（改善実験）、9（ローカルAIアドバイザー）、10（DartsSupportApp連携）。
+8（改善実験）、9（ローカルAIアドバイザー）、10（DartsSupportApp連携）。
 
 ## 未解決事項・ユーザー判断が必要な事項
 
@@ -53,6 +54,13 @@ branch `codex/phase-6-grip-analysis` 時点）。
 7. **HandLandmarkerの信頼度モデルがPoseLandmarkerより粗い**：ランドマーク
    ごとのvisibilityが取得できず、手全体のhandedness分類スコアを一律適用
    している（`phase6_notes.md` 参照）。
+8. **Phase 7のform_correlationsも実データ未検証**：計算ロジック自体は
+   合成データでテスト済みだが、実際のフォーム特徴量×着弾統計のペアリング
+   データが存在しないため、意味のある相関が実際に出るかは未検証
+   （`phase7_notes.md` 参照）。
+9. **Phase 7で意図的に未実装の原因カテゴリ**：リリース位置・足位置・
+   狙い線・用具・手首の動き（Phase 8以降または追加の特徴量抽出が必要。
+   `phase7_notes.md` 参照）。
 
 ## 依存関係
 
@@ -64,7 +72,7 @@ Phase 6は新規pip依存なし（Phase 5のmediapipeを再利用、HandLandmark
 
 ## 次にやること
 
-- 上記「未解決事項1」が解消され次第、7branch分をpushしてDraft PRを作成。
-- 「未解決事項6」（実データでの検証）はユーザー側での実機・実データ提供が
+- 上記「未解決事項1」が解消され次第、8branch分をpushしてDraft PRを作成。
+- 「未解決事項6・8」（実データでの検証）はユーザー側での実機・実データ提供が
   必要。それまでは測定値ではなく推定値として明示され続ける（設計原則通り）。
-- ユーザーの指示に基づき、Phase 7（統合解析）以降へ継続。
+- 「開発フローの原則」に従い、Phase 8（改善実験システム）以降へ継続。
