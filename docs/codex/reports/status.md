@@ -1,24 +1,27 @@
 # DartsAnalyticsApp — 進捗ステータス
 
-最終更新: 2026-09-17（このセッションでの作業分）
+最終更新: 2026-09-17（このセッションでの作業分、Phase 6完了時点）
 
 ## 完了したPhase
 
 | Phase | 状態 | branch |
 |---|---|---|
-| 0: Repository Foundation | 完了（97テスト構成の基盤、後日migration atomicity修正込み） | `codex/phase-0-foundation` |
+| 0: Repository Foundation | 完了（migration atomicity修正込み） | `codex/phase-0-foundation` |
 | 1: COUNT-UP Data Core（モック） | 完了 | `codex/phase-1-count-up-data` |
 | 2: DARTSLIVE HOME Adapter | 調査完了・抽象化のみ実装（実機検証待ちで意図的に停止） | `codex/phase-2-dartslive-adapter` |
 | 3: Board Coordinate Analysis | 完了（静止画像ベース） | `codex/phase-3-board-analysis` |
+| 4: Video Intake & Shooting Guide | 完了 | `codex/phase-4-video-intake` |
+| 5: Pose Analysis | 完了（実写真未検証、下記参照） | `codex/phase-5-pose-analysis` |
+| 6: Grip Analysis | 完了（実写真未検証、下記参照） | `codex/phase-6-grip-analysis` |
 
-4本のbranchはスタック構成（0→1→2→3の順に積み重ね）。まだ `main` へのマージも
-GitHubへのpushも行っていない（下記「未解決事項」参照）。全ブランチで
-`pytest` 97件パス、`scripts/bootstrap_check.py` 成功を確認済み。
+7本のbranchはスタック構成（0→1→2→3→4→5→6の順に積み重ね）。まだ `main` への
+マージもGitHubへのpushも行っていない（下記「未解決事項」参照）。全ブランチで
+`pytest` 186件パス、`scripts/bootstrap_check.py` 成功を確認済み（最新
+branch `codex/phase-6-grip-analysis` 時点）。
 
 ## 未着手のPhase
 
-4（動画取り込み・撮影ガイド）、5（姿勢推定）、6（グリップ解析）、7（統合解析）、
-8（改善実験）、9（ローカルAIアドバイザー）、10（DartsSupportApp連携）。
+7（統合解析）、8（改善実験）、9（ローカルAIアドバイザー）、10（DartsSupportApp連携）。
 
 ## 未解決事項・ユーザー判断が必要な事項
 
@@ -39,14 +42,29 @@ GitHubへのpushも行っていない（下記「未解決事項」参照）。�
    将来的に処理速度が問題になる場合はscipy.ndimage.labelの採用を検討。
 5. **calibrationの確信度**：単純な閾値+真円度のみで判定しており、「本当に
    ダーツボードか」の判定はしていない（丸い物体全般を高信頼と誤判定しうる）。
-   Phase 4以降、実際のボード写真でチューニングが必要。
+   実際のボード写真でチューニングが必要。
+6. **【重要・リリース前必須】Phase 5姿勢推定・Phase 6グリップ解析ともに
+   実際の人物映像・グリップ写真での検証が未実施**：このセッションには
+   実際にダーツを投げる人物の映像、グリップを写した写真が一切なく、
+   「人物/手を検出しない」ことの確認（誤検出なし）に留まる。検出精度・
+   ランドマーク位置の妥当性・confidenceの較正は未検証。実際のデータでの
+   テストがリリース前に必須（`docs/codex/reports/phase5_notes.md`,
+   `phase6_notes.md` 参照）。
+7. **HandLandmarkerの信頼度モデルがPoseLandmarkerより粗い**：ランドマーク
+   ごとのvisibilityが取得できず、手全体のhandedness分類スコアを一律適用
+   している（`phase6_notes.md` 参照）。
 
 ## 依存関係
 
-Phase 0/1: 追加依存なし。Phase 3で `numpy`, `pillow` を追加（画像I/Oと
-グルーピング統計のため。理由は `pyproject.toml` のコメント参照）。
+Phase 0/1: 追加依存なし。Phase 3で `numpy`, `pillow`（画像I/Oとグルーピング
+統計）。Phase 5で `mediapipe`（姿勢推定、モデルファイル別途ダウンロード）。
+Phase 6は新規pip依存なし（Phase 5のmediapipeを再利用、HandLandmarker用
+モデルファイルのみ別途ダウンロード）。ffmpeg/ffprobeはPhase 4からの
+外部バイナリ依存（pip外）。
 
 ## 次にやること
 
-- 上記「未解決事項1」が解消され次第、4branch分をpushしてDraft PRを作成。
-- ユーザーの指示があり次第、Phase 4（動画取り込み・撮影ガイド）に着手。
+- 上記「未解決事項1」が解消され次第、7branch分をpushしてDraft PRを作成。
+- 「未解決事項6」（実データでの検証）はユーザー側での実機・実データ提供が
+  必要。それまでは測定値ではなく推定値として明示され続ける（設計原則通り）。
+- ユーザーの指示に基づき、Phase 7（統合解析）以降へ継続。

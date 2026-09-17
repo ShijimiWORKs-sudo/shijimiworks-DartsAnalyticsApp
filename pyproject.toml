@@ -20,6 +20,10 @@ requires-python = ">=3.10"
 #     needs a one-time local model-file download (not a pip dependency) —
 #     see models/README.md. ffmpeg/ffprobe (Phase 4) are a similar
 #     external-binary dependency, also not installable via pip.
+#
+# Phase 6 (grip analysis, docs §Phase6) reuses mediapipe (no new pip
+# dependency) via its HandLandmarker model — a second, separate .task
+# file download (see models/README.md).
 dependencies = [
     "numpy>=1.26",
     "pillow>=10.0",

@@ -26,3 +26,25 @@ The `.task` file itself is **not committed to git** (binary model weights;
 see `.gitignore`) — every clone needs to run the command above once.
 `dartsanalytics.pose.landmarker.PoseModelNotFoundError` is raised with this
 same instruction if the file is missing when pose analysis runs.
+
+## Grip analysis (Phase 6)
+
+Grip analysis (docs §Phase6) reuses the same `mediapipe` dependency (no
+new pip package) but needs its own model file — MediaPipe's
+`HandLandmarker` (21-point hand topology), separate from the pose model
+above.
+
+```bash
+curl -L -o models/hand_landmarker.task \
+  https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task
+```
+
+Same pattern as the pose model: one-time download, fully offline
+afterward, not committed to git (`.gitignore`).
+`dartsanalytics.grip.landmarker.HandModelNotFoundError` is raised with
+this same instruction if the file is missing when grip analysis runs.
+
+Note: unlike `PoseLandmarker`, the installed `HandLandmarker`'s Tasks API
+does not expose a per-landmark visibility score — see
+`dartsanalytics.grip.landmarks.HandLandmarkPoint` for how confidence is
+derived instead (the per-hand handedness score, applied uniformly).
