@@ -51,3 +51,11 @@ class SessionStatus(str, Enum):
 
 class GameType(str, Enum):
     COUNT_UP = "COUNT_UP"
+
+
+class SyncState(str, Enum):
+    """DartsSupportApp連携用の同期状態 (docs §Phase10 "sync state")."""
+
+    PENDING = "pending"
+    SYNCED = "synced"
+    FAILED = "failed"

@@ -1,6 +1,6 @@
 # DartsAnalyticsApp — 進捗ステータス
 
-最終更新: 2026-09-17（このセッションでの作業分、Phase 9完了時点）
+最終更新: 2026-09-17（このセッションでの作業分、**Phase 0〜10 全完了**）
 
 ## 完了したPhase
 
@@ -16,15 +16,19 @@
 | 7: Integrated Analysis | 完了（一部カテゴリ意図的未実装、下記参照） | `codex/phase-7-integrated-analysis` |
 | 8: Experiment System | 完了（DB永続化は未実装、下記参照） | `codex/phase-8-experiments` |
 | 9: Local AI Advisor | 完了（外部LLM未使用・テンプレートベース、下記参照） | `codex/phase-9-local-ai` |
+| 10: DartsSupportApp Contract | 完了（実スキーマ未検証、下記参照） | `codex/phase-10-support-contract` |
 
-10本のbranchはスタック構成（0→1→2→3→4→5→6→7→8→9の順に積み重ね）。まだ
-`main`へのマージもGitHubへのpushも行っていない（下記「未解決事項」参照）。
-全ブランチで`pytest` 259件パス、`scripts/bootstrap_check.py` 成功を確認済み
-（最新branch `codex/phase-9-local-ai` 時点）。
+docs/codex/CODEX_DARTS_ANALYTICS_IMPLEMENTATION_v1.0.mdに定義された
+全11 Phase（0〜10）の実装が完了した。11本のbranchはスタック構成
+（0→1→2→…→10の順に積み重ね）。まだ`main`へのマージもGitHubへのpushも
+行っていない（下記「未解決事項」参照）。全ブランチで`pytest` 267件パス、
+`scripts/bootstrap_check.py` 成功を確認済み（最新branch
+`codex/phase-10-support-contract` 時点）。
 
 ## 未着手のPhase
 
-10（DartsSupportApp連携）。
+なし（全Phase完了）。ただし下記「未解決事項」に記載の検証・統合作業は
+リリース前に必須。
 
 ## 未解決事項・ユーザー判断が必要な事項
 
@@ -76,6 +80,10 @@
     テンプレートベース実装（`phase9_notes.md`参照）。自然な文章生成や
     より柔軟な仮説生成が必要な場合、外部/ローカルLLMの追加は将来の
     ユーザー判断事項。
+13. **【重要】Phase 10のDartsSupportApp契約は実スキーマ未検証**：
+    フォルダアクセスが得られなかったため、docs §Phase10のフィールド
+    リストのみに基づく実装。実際のDartsSupportApp実装との突合が
+    連携前に必須（`phase10_notes.md`参照）。
 
 ## 依存関係
 
@@ -87,7 +95,9 @@ Phase 6は新規pip依存なし（Phase 5のmediapipeを再利用、HandLandmark
 
 ## 次にやること
 
-- 上記「未解決事項1」が解消され次第、10branch分をpushしてDraft PRを作成。
+- 上記「未解決事項1」が解消され次第、11branch分をpushしてDraft PRを作成
+  （各PRに変更内容・テスト結果・未解決事項・実機確認が必要な事項を記載）。
 - 「未解決事項6・8」（実データでの検証）はユーザー側での実機・実データ提供が
   必要。それまでは測定値ではなく推定値として明示され続ける（設計原則通り）。
-- 「開発フローの原則」に従い、Phase 10（DartsSupportApp Contract）以降へ継続。
+- 全Phase実装は完了。残る作業は実データ・実機での検証と、DB永続化層の要否
+  判断（ユーザー側での優先度判断が必要）。
